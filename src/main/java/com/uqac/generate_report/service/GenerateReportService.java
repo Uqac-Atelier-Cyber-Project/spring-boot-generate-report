@@ -107,7 +107,7 @@ public class GenerateReportService {
             }
 
             // Ajout du rapport a la base de données dans Report
-            report.setEncryptedFile(pdfFile.getAbsolutePath().getBytes());
+            report.setEncryptedFile(pdfFile.getAbsolutePath());
             reportRepository.save(report);
 
             // Suppression de la ligne dans PendingAnalysis
