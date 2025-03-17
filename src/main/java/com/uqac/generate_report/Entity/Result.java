@@ -19,15 +19,19 @@ public class Result {
     @Column(name = "report_id", nullable = false)
     private Long reportId;
 
-    @Column(name = "step1", nullable = true, length = 4000)
+    @Lob
+    @Column(name = "step1", nullable = true, columnDefinition = "LONGTEXT")
     private String step1;
 
-    @Column(name = "step2", nullable = true, length = 4000)
+    @Lob
+    @Column(name = "step2", nullable = true, columnDefinition = "LONGTEXT")
     private String step2;
 
-    @Column(name = "step3", nullable = true, length = 4000)
+    @Lob
+    @Column(name = "step3", nullable = true, columnDefinition = "LONGTEXT")
     private String step3;
 
-    @Column(name = "step4", nullable = true, length = 4000)
+    @Lob
+    @Column(name = "step4", nullable = true, columnDefinition = "LONGTEXT")
     private String step4;
 }
