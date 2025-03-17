@@ -75,37 +75,61 @@ public class GenerateReportService {
             }
             PendingAnalysis pendingAnalysis = optionalPendingAnalysis.get();
 
-            // Création du document PDF
-            File pdfFile = new File(report.getReportName());
+            String outputPath = "/home/kiurow590/WebstormProjects/vue-js-front/front/public/pdf/" + report.getReportName() + ".pdf";
+            File pdfFile = new File(outputPath);
             try (PDDocument document = new PDDocument()) {
+                PDType0Font font = PDType0Font.load(document, new File("src/main/resources/fonts/Courier Regular.ttf"));
+                PDPage page = new PDPage(PDRectangle.A4);
+                document.addPage(page);
+                PDPageContentStream contentStream = new PDPageContentStream(document, page);
+                contentStream.setFont(font, 12);
+                contentStream.beginText();
+                contentStream.newLineAtOffset(50, 750);
+                float yPosition = 750;
+                float lineHeight = 15;
 
                 for (String step : steps) {
                     if (step == null) {
                         continue;
                     }
-                    PDPage page = new PDPage(PDRectangle.A4);
-                    document.addPage(page);
-                    PDType0Font font = PDType0Font.load(document, new File("src/main/resources/fonts/Courier Regular.ttf"));
-                    try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                        contentStream.setFont(font, 12);
-                        contentStream.beginText();
-                        contentStream.newLineAtOffset(50, 750);
-                        contentStream.showText(step);
-                        contentStream.endText();
+
+                    String[] lines = step.split("\n");
+                    for (String line : lines) {
+                        if (line.trim().isEmpty()) {
+                            continue;
+                        }
+
+                        String filteredLine = line.replaceAll("[\\x00-\\x1F]", "");
+                        contentStream.showText(filteredLine);
+                        yPosition -= lineHeight;
+
+                        if (yPosition < 50) { // Check if we need a new page
+                            contentStream.endText();
+                            contentStream.close();
+
+                            page = new PDPage(PDRectangle.A4);
+                            document.addPage(page);
+                            contentStream = new PDPageContentStream(document, page);
+                            contentStream.setFont(font, 12);
+                            contentStream.beginText();
+                            contentStream.newLineAtOffset(50, 750);
+                            yPosition = 750;
+                        } else {
+                            contentStream.newLineAtOffset(0, -lineHeight);
+                        }
                     }
                 }
+                contentStream.endText();
+                contentStream.close();
 
-                // Ajout d'un chiffrement avec mot de passe
                 AccessPermission accessPermission = new AccessPermission();
                 StandardProtectionPolicy protectionPolicy = new StandardProtectionPolicy(pendingAnalysis.getPdfPassword(), "userPassword", accessPermission);
                 protectionPolicy.setEncryptionKeyLength(128);
                 protectionPolicy.setPermissions(accessPermission);
                 document.protect(protectionPolicy);
 
-                // Sauvegarde du fichier PDF
                 document.save(pdfFile);
             }
-
             // Ajout du rapport a la base de données dans Report
             report.setEncryptedFile(pdfFile.getAbsolutePath().getBytes());
             reportRepository.save(report);
