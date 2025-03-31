@@ -9,7 +9,6 @@ import com.uqac.generate_report.dto.IARequest;
 import com.uqac.generate_report.repository.PendingAnalysisRepository;
 import com.uqac.generate_report.repository.ReportRepository;
 import com.uqac.generate_report.repository.ResultRepository;
-import jakarta.persistence.Lob;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +52,7 @@ public class GenerateReportService {
             List<Result> results = resultRepository.findByReportId(generateId);
             if (results.isEmpty())
                 throw new IllegalArgumentException("Aucun résultat trouvé pour l'ID : " + generateId);
-            Result result = results.get(0);
+            Result result = results.getFirst();
 
             List<String> steps = Arrays.asList(result.getStep1(), result.getStep2(), result.getStep3(), result.getStep4());
 
@@ -75,8 +74,9 @@ public class GenerateReportService {
             // Écrire le Markdown dans un fichier
             String markdownFilePath = saveMarkdownFile(markdownContent, reportName);
 
+
             // Convertir en PDF avec Pandoc
-            String pdfFilePath = convertMarkdownToPdf(markdownFilePath);
+            String pdfFilePath = convertMarkdownToPdf(markdownFilePath, pendingAnalysis.getPdfPassword());
 
             // Sauvegarde du rapport
             report.setEncryptedFile(pdfFilePath);
@@ -106,14 +106,11 @@ public class GenerateReportService {
             IARequest iaRequest = IARequest.builder().prompt(message).build();
 
             // Effectuer la requête HTTP
-            ResponseEntity<String> response = restTemplate.postForEntity(
-                    IA_SERVICE_URL, iaRequest, String.class
-            );
+            ResponseEntity<String> response = restTemplate.postForEntity(IA_SERVICE_URL, iaRequest, String.class);
 
             // Parse the JSON response to extract the 'reponse' attribute
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(response.getBody());
-
             log.info("Réponse de l'IA : {}", rootNode.path("response").asText());
             return rootNode.path("response").asText();
         } catch (Exception e) {
@@ -135,36 +132,46 @@ public class GenerateReportService {
     /**
      * Convertit un fichier Markdown en PDF en utilisant Pandoc.
      */
-    private String convertMarkdownToPdf(String markdownFilePath) throws IOException, InterruptedException {
+    private String convertMarkdownToPdf(String markdownFilePath, String filePassword) throws IOException, InterruptedException {
         String pdfFilePath = markdownFilePath.replace(".md", ".pdf");
         log.info("Converting Markdown file to PDF: {}", markdownFilePath);
 
+        // Step 1: Generate the PDF with Pandoc
         ProcessBuilder processBuilder = new ProcessBuilder(
-                "pandoc", markdownFilePath, "-o", pdfFilePath
+                "pandoc", markdownFilePath, "-o", pdfFilePath, "--from=markdown+smart",
+                "--pdf-engine=xelatex", "-V", "geometry:margin=1in", "-V", "mainfont=DejaVuSerif"
         );
         Process process = processBuilder.start();
+        if (process.waitFor() != 0) {
+            throw new IOException("Erreur lors de la génération du PDF avec Pandoc");
+        }
+
+        // Step 2: Protect the PDF with QPDF
+        ProcessBuilder qpdfProcessBuilder = new ProcessBuilder(
+                "qpdf", "--encrypt", filePassword, filePassword, "256", "--", "--replace-input", pdfFilePath
+        );
+        Process qpdfProcess = qpdfProcessBuilder.start();
 
         // Capture the output and error streams
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-             BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(qpdfProcess.getInputStream()));
+             BufferedReader errorReader = new BufferedReader(new InputStreamReader(qpdfProcess.getErrorStream()))) {
 
             String line;
             while ((line = reader.readLine()) != null) {
-                log.info("Pandoc output: {}", line);
+                log.info("QPDF output: {}", line);
             }
             while ((line = errorReader.readLine()) != null) {
-                log.error("Pandoc error: {}", line);
+                log.error("QPDF error: {}", line);
             }
         }
 
-        int exitCode = process.waitFor();
-
-        if (exitCode == 0) {
-            log.info("PDF generated successfully: {}", pdfFilePath);
-        } else {
-            log.error("Error occurred while generating PDF. Exit code: {}", exitCode);
+        if (qpdfProcess.waitFor() != 0) {
+            throw new IOException("Erreur lors de la protection du PDF avec QPDF");
         }
 
+        log.info("PDF généré et protégé avec succès : {}", pdfFilePath);
         return pdfFilePath;
     }
+
+
 }
