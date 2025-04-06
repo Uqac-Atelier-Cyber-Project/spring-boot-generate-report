@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uqac.generate_report.Entity.PendingAnalysis;
 import com.uqac.generate_report.Entity.Report;
 import com.uqac.generate_report.Entity.Result;
+import com.uqac.generate_report.dto.ApiProperties;
 import com.uqac.generate_report.dto.IARequest;
 import com.uqac.generate_report.repository.PendingAnalysisRepository;
 import com.uqac.generate_report.repository.ReportRepository;
@@ -12,6 +13,7 @@ import com.uqac.generate_report.repository.ResultRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class GenerateReportService {
 
+    @Autowired
+    private ApiProperties apiProperties;
+
     private static final Logger log = LoggerFactory.getLogger(GenerateReportService.class);
     public static final Map<Long, String> reportMapStatus = new ConcurrentHashMap<>();
 
@@ -36,7 +41,6 @@ public class GenerateReportService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String IA_SERVICE_URL = "http://localhost:8087/generate"; // Exemple d'URL
 
     /**
      * Génère un rapport en appelant un service IA.
@@ -106,7 +110,7 @@ public class GenerateReportService {
             IARequest iaRequest = IARequest.builder().prompt(message).build();
 
             // Effectuer la requête HTTP
-            ResponseEntity<String> response = restTemplate.postForEntity(IA_SERVICE_URL, iaRequest, String.class);
+            ResponseEntity<String> response = restTemplate.postForEntity(apiProperties.getUrl() + "/generate", iaRequest, String.class);
 
             // Parse the JSON response to extract the 'reponse' attribute
             ObjectMapper objectMapper = new ObjectMapper();

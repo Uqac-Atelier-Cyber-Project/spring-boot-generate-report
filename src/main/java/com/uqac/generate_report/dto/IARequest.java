@@ -8,5 +8,7 @@ import lombok.Setter;
 @Setter
 @Builder
 public class IARequest {
+    private String model;
     private String prompt;
+
 }
