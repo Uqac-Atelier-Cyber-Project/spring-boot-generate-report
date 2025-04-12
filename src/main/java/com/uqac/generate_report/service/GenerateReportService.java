@@ -128,6 +128,9 @@ public class GenerateReportService {
      */
     private String saveMarkdownFile(String content, String reportName) throws IOException {
         String homeDirectory = System.getProperty("user.home");
+        log.info(
+                "Sauvegarde du fichier Markdown dans le répertoire : {} avec le nom : {}", homeDirectory + apiProperties.getPath(), reportName
+        );
         String filePath = homeDirectory + apiProperties.getPath() + reportName + ".md";
         Files.write(Paths.get(filePath), content.getBytes());
         return filePath;
