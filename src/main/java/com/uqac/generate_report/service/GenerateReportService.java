@@ -128,7 +128,7 @@ public class GenerateReportService {
      */
     private String saveMarkdownFile(String content, String reportName) throws IOException {
         String homeDirectory = System.getProperty("user.home");
-        String filePath = homeDirectory + "/WebstormProjects/vue-js-front/front/public/pdf/" + reportName + ".md";
+        String filePath = homeDirectory + apiProperties.getPath() + reportName + ".md";
         Files.write(Paths.get(filePath), content.getBytes());
         return filePath;
     }
